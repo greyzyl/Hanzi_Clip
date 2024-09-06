@@ -27,7 +27,7 @@ if config['resume'] != '':
 # 读取数据
 train_loader, test_loader = get_data_package()
 
-loss_img = nn.CrossEntropyLoss()
+loss_img = nn.CrossEntropyLoss()#//
 loss_txt = nn.CrossEntropyLoss()
 
 optimizer = optim.Adam(model.parameters(), lr=config['lr'], betas=(0.9, 0.98), eps=1e-6)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
