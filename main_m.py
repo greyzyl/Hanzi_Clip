@@ -14,7 +14,7 @@ from model_m import CLIP
 # device = "cuda:0" if torch.cuda.is_available() else "cpu"  # If using GPU then use mixed precision training.
 # model, preprocess = clip.load("ViT-B/32", device=device, jit=False)  # Must set jit=False for training
 alphabet = get_alphabet()
-alphabet_s = get_alphabet_s()#fdf
+alphabet_s = get_alphabet_s()
 model = CLIP(embed_dim=2048, image_resolution=224, vision_layers=12, vision_width=768,
              vision_patch_size=32, context_length=config['max_len'],context_length_s=config['max_len_s'], vocab_size=len(alphabet), stroke_size=len(alphabet_s), transformer_width=512,
              transformer_heads=8, transformer_layers=12).cuda()
@@ -27,7 +27,7 @@ if config['resume'] != '':
 # 读取数据
 train_loader, test_loader = get_data_package()
 
-loss_img = nn.CrossEntropyLoss()#//
+loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 
 optimizer = optim.Adam(model.parameters(), lr=config['lr'], betas=(0.9, 0.98), eps=1e-6)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
@@ -38,7 +38,7 @@ def convert_models_to_fp32(model):
         p.grad.data = p.grad.data.float()
 
 # 读取所有的字符
-char_file = open('./data/all_chinese.txt', 'r').read()
+char_file = open(config['char_path'], 'r').read()
 char_3755 = list(char_file)
 
 global best_acc, best_acc_s, best_acc_all
@@ -54,7 +54,13 @@ def val(model):
     print('测试集长度:', test_loader_len)
     torch.save(model.state_dict(), './history/{}/model.pth'.format(config['exp_name']))
 
-    tmp_text, tmp_text_s = convert(char_3755)
+    tmp_text, tmp_text_s, text_tensor_mask, stroke_tensor_mask, fused_tensor_mask,text_2_stroke_cross_attn_mask,stroke_2_text_cross_attn_mask = convert(char_3755)
+    text_tensor_mask=text_tensor_mask.cuda()
+    stroke_tensor_mask=stroke_tensor_mask.cuda()
+    stroke_2_text_cross_attn_mask=stroke_2_text_cross_attn_mask.cuda()
+    text_2_stroke_cross_attn_mask=text_2_stroke_cross_attn_mask.cuda()
+    fused_tensor_mask=fused_tensor_mask.cuda()
+    
     text_features = []
     text_features_s = []
     text_features_all = []
@@ -67,11 +73,12 @@ def val(model):
                 e = len(char_3755)
             if s == len(char_3755):
                 break
-            text_features_tmp, seq_text = model.module.encode_text(tmp_text[s:e])
-            text_features_tmp_s, seq_text_s = model.module.encode_text_s(tmp_text_s[s:e])
+
+            text_features_tmp, seq_text = model.module.encode_text(tmp_text[s:e],text_tensor_mask[s:e])
+            text_features_tmp_s, seq_text_s = model.module.encode_text_s(tmp_text_s[s:e],stroke_tensor_mask[s:e])
             # print('seq_text:', seq_text.size())
             # print('seq_text_s:', seq_text_s.size())
-            text_features_tmp_all = model.module.encode_all(seq_text, seq_text_s)
+            text_features_tmp_all = model.module.encode_all(seq_text, seq_text_s,text_2_stroke_cross_attn_mask[s:e],stroke_2_text_cross_attn_mask[s:e], fused_tensor_mask[s:e])
             text_features.append(text_features_tmp)
             text_features_s.append(text_features_tmp_s)
             text_features_all.append(text_features_tmp_all)
@@ -84,13 +91,14 @@ def val(model):
         total = 0
         with trange(test_loader_len) as t:
             for iteration in t:
-                data = test_dataloader.next()
+                data = next(test_dataloader)
                 image, label = data
                 image = torch.nn.functional.interpolate(image, size=(config['imageH'], config['imageW']))
 
                 # image = image.to(device)
                 image = image.cuda()
-                image_features, text_features, text_features_s, text_features_all, logit_scale, logit_scale_s, logit_scale_all = model(image, text_features, text_features_s, text_features_all, test=True)
+                image_features, text_features, text_features_s, text_features_all, logit_scale, logit_scale_s, logit_scale_all = \
+                    model(image, text_features, text_features_s,text_tensor_mask, stroke_tensor_mask, fused_tensor_mask,text_2_stroke_cross_attn_mask,stroke_2_text_cross_attn_mask, text_features_fuse=text_features_all, test=True)
                 logits_per_image = logit_scale[0] * image_features @ text_features.t()
                 _, index = logits_per_image.softmax(dim=-1).max(dim=-1)
 
@@ -141,7 +149,7 @@ for epoch in range(config['epoch']):
         model.train()
         optimizer.zero_grad()
 
-        data = dataloader.next()
+        data = next(dataloader)
         image, label = data
 
         image = torch.nn.functional.interpolate(image, size=(config['imageH'], config['imageW']))
@@ -185,9 +193,7 @@ for epoch in range(config['epoch']):
         print('epoch:{}, iter:{}/{}, loss_r:{}, loss_s:{}, loss_all:{}'.format(epoch, iteration, train_loader_len, loss_r, loss_s, loss_all))
         # val(model)
         # exit()
-        if (iteration + 1) == 0:
-            val(model)
-    # val(model)
+    val(model)
     if (epoch + 1) % 3 == 0:
         for p in optimizer.param_groups:
             p['lr'] *= 0.8

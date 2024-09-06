@@ -1,3 +1,8 @@
+import torch
+import time
+import shutil
+import os
+
 from config import config
 from dataset import lmdbDataset, resizeNormalize
 import torch
@@ -57,7 +62,8 @@ for line in dict_file:
 
 def get_data_package():
     train_dataset = []
-    for dataset_root in config['train_dataset'].split(','):
+    # for dataset_root in config['train_dataset'].split(','):
+    for dataset_root in config['train_dataset']:
         dataset = lmdbDataset(dataset_root, resizeNormalize((config['imageW'], config['imageH']), test=False))
         train_dataset.append(dataset)
     train_dataset_total = torch.utils.data.ConcatDataset(train_dataset)
@@ -66,7 +72,8 @@ def get_data_package():
     )
 
     test_dataset = []
-    for dataset_root in config['test_dataset'].split(','):
+    # for dataset_root in config['test_dataset'].split(','):
+    for dataset_root in config['test_dataset']:
         dataset = lmdbDataset(dataset_root, resizeNormalize((config['imageW'], config['imageH']), test=True))
         test_dataset.append(dataset)
     test_dataset_total = torch.utils.data.ConcatDataset(test_dataset)
@@ -190,7 +197,6 @@ def convert2(label):
     return r_label, s_label
 def saver():
     try:
-        # 将原有的文件删掉
         shutil.rmtree('./history/{}'.format(config['exp_name']))
     except:
         pass

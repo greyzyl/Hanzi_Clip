@@ -125,6 +125,8 @@ class VisionTransformer(nn.Module):
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
 
+        # print(x.shape)
+
         x = self.ln_post(x[:, 0, :])
         if self.proj is not None:
             x = x @ self.proj
@@ -145,8 +147,19 @@ class CLIP(nn.Module):
 
         self.context_length = context_length
 
+        # resnet visual encoder
         from resnet50 import ResNet_50, Bottleneck
         self.visual = ResNet_50(Bottleneck, [3, 4, 6, 3])
+
+        # vit visual encoder
+        # self.visual  = VisionTransformer(
+        #                         input_resolution=128,
+        #                         patch_size=16,
+        #                         width=768,
+        #                         layers=12,
+        #                         heads=12,
+        #                         output_dim=2048,
+        #                     )
 
         self.transformer = Transformer(
             width=transformer_width,
@@ -155,8 +168,8 @@ class CLIP(nn.Module):
             attn_mask=self.build_attention_mask()
         )
 
-        self.vocab_size =  vocab_size
-        self.token_embedding = nn.Embedding(self.vocab_size, transformer_width)
+        self.vocab_size = vocab_size
+        self.token_embedding = nn.Embedding(vocab_size, transformer_width)
         self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
         self.ln_final = LayerNorm(transformer_width)
 
@@ -219,4 +232,27 @@ class CLIP(nn.Module):
         logit_scale = self.logit_scale.exp()
 
         return image_features, text_features, logit_scale
+
+if __name__ == '__main__':
+    from resnet50 import ResNet_50, Bottleneck
+
+    x = torch.randn((2,3,128,128))
+    resnet_encoder = ResNet_50(Bottleneck, [3, 4, 6, 3])
+    # print(resnet_encoder(x).shape)
+
+    vit_encoder = VisionTransformer(
+                                input_resolution=128,
+                                patch_size=16,
+                                width=768,
+                                layers=12,
+                                heads=12,
+                                output_dim=2048,
+                            )
+    print(vit_encoder(x).shape)
+
+    # params_grad = [p.numel() for n, p in resnet_encoder.named_parameters()]
+    # print(f"Number of Mapping Trainable Parameters: {sum(params_grad) / (1 << 20):.2f} M")
+
+    params_grad = [p.numel() for n, p in vit_encoder.named_parameters()]
+    print(f"Number of Mapping Trainable Parameters: {sum(params_grad) / (1 << 20):.2f} M")
 
