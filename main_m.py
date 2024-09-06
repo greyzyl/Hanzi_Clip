@@ -14,7 +14,7 @@ from model_m import CLIP
 # device = "cuda:0" if torch.cuda.is_available() else "cpu"  # If using GPU then use mixed precision training.
 # model, preprocess = clip.load("ViT-B/32", device=device, jit=False)  # Must set jit=False for training
 alphabet = get_alphabet()
-alphabet_s = get_alphabet_s()
+alphabet_s = get_alphabet_s()#fdf
 model = CLIP(embed_dim=2048, image_resolution=224, vision_layers=12, vision_width=768,
              vision_patch_size=32, context_length=config['max_len'],context_length_s=config['max_len_s'], vocab_size=len(alphabet), stroke_size=len(alphabet_s), transformer_width=512,
              transformer_heads=8, transformer_layers=12).cuda()
