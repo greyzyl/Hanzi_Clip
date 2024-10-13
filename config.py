@@ -26,11 +26,13 @@ config = {
                     '/home/yuhaiyang/dataset/hanziclip_data_lmdb/svtr-v2/train',
                     '/home/yuhaiyang/dataset/hanziclip_data_lmdb/HWDB1.0train',
                     '/home/yuhaiyang/dataset/hanziclip_data_lmdb/HWDB1.1train',
-                    '/home/yuhaiyang/dataset/hanziclip_data_lmdb/HWDB1.2train',],#训练数据集在我的数据集文件下
+                    '/home/yuhaiyang/dataset/hanziclip_data_lmdb/HWDB1.2train',
+                    ],#训练数据集在我的数据集文件下
     'test_dataset': ['/home/yuhaiyang/dataset/hanziclip_data_lmdb/archives_test2',],#测试数据集在我的数据集文件下
     'batch': 64,
     'imageW': 128,
     'imageH': 128,
+    'vision_type':'vit',
     'resume': '',
     'alphabet_path': 'data/radical_alphabet_531.txt', #'/home/luwei/code/Stroke_Radical/data/radical_alphabet_27533_benchmark.txt',
     'decompose_path': 'data/c2r_decompose_29130.txt',

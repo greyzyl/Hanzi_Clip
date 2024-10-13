@@ -360,6 +360,7 @@ class VisionTransformer(nn.Module):
 
 class CLIP(nn.Module):
     def __init__(self,
+                 vision_type:str,
                  embed_dim: int,
                  # vision
                  image_resolution: int,
@@ -382,8 +383,19 @@ class CLIP(nn.Module):
 
         # 自定义的resnet
         # self.visual = ResNet(num_in=3, block=BasicBlock, layers=[3,4,6,3], embed_dim=embed_dim)
-        from resnet50 import ResNet_50, Bottleneck
-        self.visual = ResNet_50(Bottleneck, [3, 4, 6, 3])
+        if vision_type=='resnet':
+            from resnet50 import ResNet_50, Bottleneck
+            self.visual = ResNet_50(Bottleneck, [3, 4, 6, 3])
+        elif vision_type=='vit':
+            # vit visual encoder
+            self.visual  = VisionTransformer(
+                                    input_resolution=128,
+                                    patch_size=16,
+                                    width=768,
+                                    layers=12,
+                                    heads=12,
+                                    output_dim=2048,
+                                )
         # self.visual = ResNet_50(Bottleneck, [3, 4, 6, 3])
         # self.visual = ResNet_50(Bottleneck, [3, 8, 36, 3])
 
