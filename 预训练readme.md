@@ -21,3 +21,10 @@
 # train
 
 1、详情参考config文件
+
+训练命令
+
+```bash
+python main_m.py
+```
+
