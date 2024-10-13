@@ -1,0 +1,13 @@
+*.py[cod]
+*.so
+*.egg
+*.egg-info
+.vscode
+*.vscode
+.history
+__pycache__
+*.pth
+*.pt
+*.png
+*.jpg
+*.JPG
