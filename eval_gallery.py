@@ -433,7 +433,7 @@ if __name__=='__main__':
     # test_img_root='/mnt/disk1/luwei/Archives_char_recognition/img_crops/crop_imgs'
     # test_lmdb_root=['/home/yuhaiyang/dataset/hanziclip_data_lmdb/standard_char']
     # test_lmdb_root=['/home/yuhaiyang/dataset/hanziclip_data_lmdb/byte_guji_data/test/SIKU_val_v1','/home/yuhaiyang/dataset/hanziclip_data_lmdb/byte_guji_data/test/v1_test']
-    test_lmdb_root=['/home/yuhaiyang/dataset/hanziclip_data_lmdb/danganguan/v1_test']
+    test_lmdb_root=['/home/yuhaiyang/dataset/hanziclip_data_lmdb/byte_guji_data/test/guji']
     # test_lmdb_root=['/home/yuhaiyang/dataset/hanziclip_data_lmdb/HWDB1.0test']
     # test_lmdb_root=['/home/yuhaiyang/dataset/CharacterZeroShot/test_1000']
 
@@ -445,8 +445,8 @@ if __name__=='__main__':
     radical_char_alpha_path = './data/all_chinese.txt'
 
     #load 图像gallery超参
-    # gallery_lmdb_path='/home/yuhaiyang/dataset/hanziclip_data_lmdb/standard_char/byte_data'
-    gallery_lmdb_path='/home/yuhaiyang/dataset/hanziclip_data_lmdb/standard_char/char_27533'
+    gallery_lmdb_path='/home/yuhaiyang/dataset/hanziclip_data_lmdb/standard_char/byte_data'
+    # gallery_lmdb_path='/home/yuhaiyang/dataset/hanziclip_data_lmdb/standard_char/char_27533'
     # gallery_char_dict='/home/yuhaiyang/dataset/hanziclip_data_lmdb/byte_guji_data/statistic_char_in_dataset_char_list.json'
     
     #load 模型超参并初始化模型及图像转化器
