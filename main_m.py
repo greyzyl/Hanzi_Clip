@@ -255,7 +255,7 @@ saver()
 
 for epoch in range(config['epoch']):
     sampler = RandomIdentitySampler(train_dataset, batch_size=config['batch'],num_instances=1)
-    train_loader = DataLoader(train_dataset,batch_size=config['batch'], sampler=sampler, num_workers=2,
+    train_loader = DataLoader(train_dataset,batch_size=config['batch'], sampler=sampler, num_workers=8,
                 pin_memory=True, drop_last=True,)
     dataloader = iter(train_loader)
     train_loader_len = len(train_loader)
