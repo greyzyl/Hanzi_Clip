@@ -5,6 +5,7 @@
 .vscode
 *.vscode
 .history
+history
 __pycache__
 *.pth
 *.pt

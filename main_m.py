@@ -1,3 +1,4 @@
+import pandas as pd
 import torch
 # import clip
 
@@ -68,7 +69,90 @@ def combine_gallery_features(texts,img_features):
     # print(img_features[200])
     
     return img_features,texts
+def process_labels_confidences(labels, confidences):
+    """
+    处理多标签分类的标签和置信度：
+    1. 对标签为1的位置对应的置信度进行平均。
+    2. 将平均后的置信度放在标签第一次出现1的位置上。
+    3. 合并标签，仅保留第一次出现的1，删除其余的1。
+    
+    参数：
+    - labels (torch.Tensor): 一维张量，包含标签（0或1）。
+    - confidences (torch.Tensor): 一维张量，包含对应的置信度。
 
+    返回：
+    - labels_new (torch.Tensor): 处理后的标签张量。
+    - confidences_new (torch.Tensor): 处理后的置信度张量。
+    """
+    # 找出标签为1的位置索引
+    indices = (labels == 1).nonzero(as_tuple=False).squeeze()
+
+    if indices.numel() == 0:
+        # 如果没有标签为1的情况，直接返回原始数据
+        return labels, confidences
+
+    # 计算这些位置对应的置信度的平均值
+    avg_confidence = confidences[indices].mean()
+
+    # 创建一个布尔掩码，表示要保留的位置（初始全部为True）
+    mask = torch.ones_like(labels, dtype=torch.bool)
+
+    # 将除第一次出现1的位置外的其他位置设为False（即删除）
+    if indices.numel() > 1:
+        mask[indices[1:]] = False
+
+    # 应用掩码，得到新的标签和置信度张量
+    labels_new = labels[mask]
+    confidences_new = confidences[mask]
+
+    # 更新第一次出现1的位置的置信度为平均值
+    first_one_index = (labels_new == 1).nonzero(as_tuple=False)[0]
+    confidences_new[first_one_index] = avg_confidence
+
+    return labels_new, confidences_new
+
+def merge_labels_and_confidences(labels, confidences):
+    # labels和confidences是形状相同的torch张量
+    n_rows, n_cols = labels.shape
+
+    # 将labels转换为float类型以进行计算
+    labels = labels.float()
+    confidences = confidences.float()
+
+    # 计算每一行标签为1的位置的总和（用于计算平均值）
+    labels_sum = labels.sum(dim=1)  # Shape: (n_rows,)
+
+    # 避免除以零的情况，如果某一行的标签总和为0，则将其设置为1以避免NaN
+    labels_sum = labels_sum.masked_fill(labels_sum == 0, 1)
+
+    # 计算每一行标签为1的位置的置信度总和
+    confidences_weighted_sum = (confidences * labels).sum(dim=1)  # Shape: (n_rows,)
+
+    # 计算平均置信度
+    avg_confidences = confidences_weighted_sum / labels_sum  # Shape: (n_rows,)
+
+    # 创建对角线的布尔掩码
+    diag_mask = torch.eye(n_rows, n_cols, dtype=torch.bool, device=labels.device)
+
+    # 创建标签为1的布尔掩码
+    labels_bool = labels.bool()
+
+    # 创建非对角线且标签为1的布尔掩码
+    off_diag_mask = labels_bool & ~diag_mask
+
+    # 将非对角线且标签为1的位置的置信度设置为-500
+    confidences = confidences.masked_fill(off_diag_mask, -500.0)
+
+    # 将非对角线且标签为1的位置的标签设置为0
+    labels = labels.masked_fill(off_diag_mask, 0.0)
+
+    # 将对角线位置的置信度设置为平均置信度
+    confidences = confidences.masked_scatter(diag_mask, avg_confidences)
+
+    # 确保对角线位置的标签为1
+    labels = labels.masked_fill(diag_mask, 1.0)
+
+    return labels, confidences
 # 建立模型
 # device = "cuda:0" if torch.cuda.is_available() else "cpu"  # If using GPU then use mixed precision training.
 # model, preprocess = clip.load("ViT-B/32", device=device, jit=False)  # Must set jit=False for training
@@ -86,8 +170,8 @@ if config['resume'] != '':
 
 # 读取数据
 
-_, test_loader = get_data_package()
-train_dataset=get_train_dataset_sampler()
+train_loader, test_loader = get_data_package()
+# train_dataset=get_train_dataset_sampler()
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 
@@ -222,6 +306,8 @@ def val(model):
                 t.set_postfix(acc=(max([correct_i2i,correct_r,correct_s,correct_all,correct_combine]) / total))
                 # t.set_postfix(acc_t2i=correct_t2i/total)
                 # t.set_postfix(acc_combine=correct_combine/total)
+                if total > 50:
+                    break
         print(total)
         print("ACC : {}".format(max([correct_i2i,correct_r,correct_s,correct_all,correct_combine]) / total))
         global best_acc_combine
@@ -254,9 +340,9 @@ if config['test_only']==True:
 saver()
 
 for epoch in range(config['epoch']):
-    sampler = RandomIdentitySampler(train_dataset, batch_size=config['batch'],num_instances=1)
-    train_loader = DataLoader(train_dataset,batch_size=config['batch'], sampler=sampler, num_workers=8,
-                pin_memory=True, drop_last=True,)
+    # sampler = RandomIdentitySampler(train_dataset, batch_size=config['batch'],num_instances=1)
+    # train_loader = DataLoader(train_dataset,batch_size=config['batch'], sampler=sampler, num_workers=8,
+    #             pin_memory=True, drop_last=True,)
     dataloader = iter(train_loader)
     train_loader_len = len(train_loader)
     print('训练集长度:', train_loader_len)
@@ -286,11 +372,19 @@ for epoch in range(config['epoch']):
         logits_per_image_all = logit_scale_all[0] * image_features @ text_features_all.t()
         logits_per_text_all = logits_per_image_all.t()
 
-        label_str = ''.join(label)
-        ground_truth = torch.arange(len(image), dtype=torch.long).cuda()
+        # 创建 ground_truth 矩阵
+        # label_str = ''.join(label)
+        label_encoded = pd.factorize(label)[0] 
+        label_tensor = torch.tensor(label_encoded).cuda()
+        label_tensor = label_tensor.unsqueeze(1)  # 转换为列向量
+        ground_truth_t = (label_tensor == label_tensor.T).float()  # 比较生成 ground_truth 矩阵
+        ground_truth, logits_per_image=merge_labels_and_confidences(ground_truth_t,logits_per_image)
+        ground_truth, logits_per_text =merge_labels_and_confidences(ground_truth_t,logits_per_text)
+        ground_truth, logits_per_image_s=merge_labels_and_confidences(ground_truth_t,logits_per_image_s)
+        ground_truth, logits_per_text_s =merge_labels_and_confidences(ground_truth_t,logits_per_text_s)
+        ground_truth, logits_per_image_all=merge_labels_and_confidences(ground_truth_t,logits_per_image_all)
+        ground_truth, logits_per_text_all =merge_labels_and_confidences(ground_truth_t,logits_per_text_all)        
 
-        for i in range(len(image)):
-            ground_truth[i] = label_str.index(label[i])
         loss_r = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
         loss_s = (loss_img(logits_per_image_s, ground_truth) + loss_txt(logits_per_text_s, ground_truth)) / 2
         loss_all = (loss_img(logits_per_image_all, ground_truth) + loss_txt(logits_per_text_all, ground_truth)) / 2
