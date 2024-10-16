@@ -391,6 +391,7 @@ for epoch in range(config['epoch']):
 
         total_loss = loss_r + 0.1 * loss_s + loss_all
         total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         print('epoch:{}, iter:{}/{}, loss_r:{}, loss_s:{}, loss_all:{}'.format(epoch, iteration, train_loader_len, loss_r, loss_s, loss_all))
