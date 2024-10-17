@@ -11,7 +11,18 @@ import numpy as np
 import six
 from PIL import Image
 from data.augment import distort, stretch, perspective
+import config
+def read_all_Chinese():
+    path = config['char_alphabet_path']
+    with open(path, 'r') as f:
+        data = f.read()
+    data = set(list(data))
+    return data
+all_Chinese = read_all_Chinese()
 
+img_path = 'data/微信图片_20240603182408.png'
+img_temp = Image.open(img_path).convert('RGB')
+label_temp = '工'
 def strQ2B(ustring):
     """全角转半角"""
     rstring = ""
@@ -72,7 +83,9 @@ class lmdbDataset(Dataset):
             label_key = 'label-%09d' % index
             label = str(txn.get(label_key.encode()).decode('utf-8'))
             label = strQ2B(label)
-
+            if label not in all_Chinese:
+                img = img_temp
+                label = label_temp
             if self.transform is not None:
                 img = self.transform(img)
         return (img, label)

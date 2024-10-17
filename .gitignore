@@ -12,3 +12,4 @@ __pycache__
 *.png
 *.jpg
 *.JPG
+!data/微信图片_20240603182408.png
